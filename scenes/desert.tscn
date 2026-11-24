@@ -1,0 +1,13 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/desert.gd" id="1_main"]
+
+[node name="DesertFrontier" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="FixedCamera" type="Camera3D" parent="."]
+keep_aspect = 1
+current = true
+fov = 43.0
+near = 0.8
+far = 720.0

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="460" viewBox="0 0 820 460" role="img" aria-label="马匪骑手与主角身高对照">
+  <rect width="820" height="460" fill="#f3ece1"/>
+  <g font-family="sans-serif" fill="#28251f">
+    <text x="52" y="54" font-size="29" font-weight="bold">守卫身高 · 对照马匪骑手</text>
+    <text x="52" y="83" font-size="15" fill="#614f44">相同地面基线；竖向比例精确为 100 : 80</text>
+    <path d="M56 335 H764" stroke="#6f6358" stroke-width="2"/>
+    <path d="M112 120 H730 M112 163 H730" stroke="#c0ada0" stroke-dasharray="5 6"/>
+    <rect x="150" y="120" width="183" height="215" rx="3" fill="#576069"/>
+    <rect x="484" y="163" width="183" height="172" rx="3" fill="#984638"/>
+    <g fill="#fff8ee" font-size="26" font-weight="bold" text-anchor="middle"><text x="241" y="229">100%</text><text x="575" y="252">80%</text></g>
+    <g font-size="17" text-anchor="middle">
+      <text x="241" y="363">马匪骑手 · 约 8.47 单位</text>
+      <text x="575" y="363">边疆守卫 · 约 6.78 单位</text>
+    </g>
+    <text x="52" y="408" font-size="15" fill="#614f44">以现有骑手部件展开为站姿后的估算为基准；不计马匹、头饰或飘带。</text>
+    <text x="52" y="432" font-size="14" fill="#614f44">单位为当前 Godot 工程模型单位，不是米。</text>
+  </g>
+</svg>

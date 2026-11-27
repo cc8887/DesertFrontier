@@ -7,6 +7,7 @@ const ROUTE = preload("res://scripts/desert_route.gd")
 const RIDERS := 3
 const MAX_INTEGRITY := 2
 const GUARD_OUTLINE = preload("res://scripts/guard_outline.gd")
+const WALL_EDGE = preload("res://scripts/frontier_wall_edge.gd")
 const EARTHWORK = preload("res://scripts/frontier_earthwork.gd")
 const LIGHTING = preload("res://scripts/desert_shadow.gd")
 const ARCHER = preload("res://scripts/frontier_archer.gd")
@@ -37,6 +38,7 @@ var prior_mouse_mode: Input.MouseMode
 var archer: Node3D
 var archer_key: DirectionalLight3D
 var earthwork: Node3D
+var wall_edge: CanvasLayer
 
 func _ready() -> void:
 	overlay = OVERLAY.new()
@@ -52,6 +54,9 @@ func _ready() -> void:
 	earthwork.name = "FrontierEarthwork"
 	add_child(earthwork)
 	earthwork.hide()
+	wall_edge = WALL_EDGE.new()
+	add_child(wall_edge)
+	wall_edge.setup(earthwork.get_node("SculptedRammedEarth"), host.terrain, guard_outline.mask)
 	archer.floor_height = earthwork.floor_height
 	archer_key = DirectionalLight3D.new()
 	archer_key.name = "RampartSun"
@@ -106,6 +111,7 @@ func leave() -> void:
 	archer.reset()
 	archer.hide()
 	guard_outline.deactivate()
+	wall_edge.deactivate()
 	earthwork.hide()
 	archer_key.hide()
 	host.hud.hud.visible = return_hud
@@ -218,6 +224,7 @@ func _pose_archer(delta: float) -> void:
 	archer.tick(delta, host.wind_phase, wind)
 	if active:
 		guard_outline.sync(host.camera, base, ARCHER.HEIGHT)
+		wall_edge.sync(host.camera, host.terrain, earthwork.get_node("SculptedRammedEarth"))
 
 func aim_at(screen: Vector2) -> void:
 	if not active:

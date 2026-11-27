@@ -69,6 +69,26 @@ func _run() -> void:
 		var label := "young_sand" if variant == 0 else "elder_snow"
 		var shadow: Image = await frame()
 		save(shadow,dir,label)
+		# The same rendered frame with only the wall-edge pass switched off.
+		d.wall_edge.rect.hide()
+		var hard_edge: Image = await frame()
+		save(hard_edge,dir,label+"_edge_off")
+		d.wall_edge.rect.show()
+		var border_changed := 0
+		var interior_changed := 0
+		for y in range(shadow.get_height()):
+			for x in range(shadow.get_width()):
+				var a := shadow.get_pixel(x,y)
+				var b := hard_edge.get_pixel(x,y)
+				var difference := maxf(absf(a.r-b.r),maxf(absf(a.g-b.g),absf(a.b-b.b)))
+				if difference <= .008: continue
+				if (x > 840 or y < 339) or Rect2i(304,500,250,76).has_point(Vector2i(x,y)):
+					interior_changed += 1
+				border_changed += 1
+		print("%s wall edge: %d changed, %d in protected areas" % [label,border_changed,interior_changed])
+		if border_changed < 500 or interior_changed > 0:
+			push_error("Edge pass must feather the wall but leave guard, background and deck interior unchanged")
+			failures += 1
 		d.archer_key.shadow_caster_mask = 0
 		var lit: Image = await frame()
 		save(lit,dir,label+"_shadow_off")
@@ -96,7 +116,7 @@ func _run() -> void:
 		var fired: Image = await frame()
 		save(fired,dir,label+"_hit")
 	key(KEY_ESCAPE)
-	if d.earthwork.visible or d.archer_key.visible:
+	if d.earthwork.visible or d.archer_key.visible or d.wall_edge.rect.visible or d.wall_edge.mask.render_target_update_mode != SubViewport.UPDATE_DISABLED:
 		failures += 1
 	if failures == 0:
 		print("WALL_RENDER_OK: sand and snow, native cast shadow A/B, hit after mouse retarget")

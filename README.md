@@ -23,6 +23,8 @@
 
 土墙 shader `shaders/frontier_earthwork.gdshader` 用世界空间叠印大笔触，`brush_size` 控制笔触尺度，`brush_strength` 控制叠色力度，不影响城墙网格、碰撞或受光方式。
 
+土墙接沙幕的轮廓做局部柔化；墙内的大笔触、主角轮廓和投影不做全屏模糊。左侧防守城墙的虚化半径可在 `scripts/frontier_wall_edge.gd` 中用 `radius_at_720` 调整。
+
 守卫是一套可替换的低模/可编辑 Blender 骨架。即使攻击回到待机，单根飘带仍由八节独立骨骼按场景风相驱动。详见[模型源文件与动画验收](art_assets/characters/guard_prototype/README.md)。
 
 ## 场景结构

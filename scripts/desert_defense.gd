@@ -9,6 +9,7 @@ const MAX_INTEGRITY := 2
 const GUARD_OUTLINE = preload("res://scripts/guard_outline.gd")
 const WALL_EDGE = preload("res://scripts/frontier_wall_edge.gd")
 const EARTHWORK = preload("res://scripts/frontier_earthwork.gd")
+const STANDARD = preload("res://scripts/frontier_han_standard.gd")
 const LIGHTING = preload("res://scripts/desert_shadow.gd")
 const ARCHER = preload("res://scripts/frontier_archer.gd")
 const FIRE_INTERVAL := ARCHER.CYCLE
@@ -39,6 +40,7 @@ var archer: Node3D
 var archer_key: DirectionalLight3D
 var earthwork: Node3D
 var wall_edge: CanvasLayer
+var standard: Node3D
 
 func _ready() -> void:
 	overlay = OVERLAY.new()
@@ -54,6 +56,10 @@ func _ready() -> void:
 	earthwork.name = "FrontierEarthwork"
 	add_child(earthwork)
 	earthwork.hide()
+	standard = STANDARD.new()
+	standard.name = "HanStandard"
+	standard.position = Vector3(-15.55,EARTHWORK.WALK_Y,-29.02)
+	earthwork.add_child(standard)
 	wall_edge = WALL_EDGE.new()
 	add_child(wall_edge)
 	wall_edge.setup(earthwork.get_node("SculptedRammedEarth"), host.terrain, guard_outline.mask)
@@ -222,6 +228,7 @@ func _pose_archer(delta: float) -> void:
 	earthwork.set_weather(host.snow_mode, host.look.sun)
 	archer.update_pigment(host.snow_mode, host.look.sand, host.look.sun, host.look.brush)
 	archer.tick(delta, host.wind_phase, wind)
+	standard.pose(host.wind_phase,wind.length(),host.snow_mode)
 	if active:
 		guard_outline.sync(host.camera, base, ARCHER.HEIGHT)
 		wall_edge.sync(host.camera, host.terrain, earthwork.get_node("SculptedRammedEarth"))

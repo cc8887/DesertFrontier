@@ -18,6 +18,7 @@ var elapsed := 0.0
 var release_count := 0
 var shot_screen := Vector2.ZERO
 var shot_target := Vector3.ZERO
+var stance_direction := Vector3.BACK
 var model: Node3D
 var skeleton: Skeleton3D
 var bones := {}
@@ -136,13 +137,17 @@ func start(screen: Vector2, target: Vector3) -> bool:
 	attacking = true
 	return true
 
-func place(ground: Vector3, target: Vector3) -> void:
+func aim_at(screen: Vector2, target: Vector3) -> void:
+	shot_screen = screen
+	shot_target = target
+
+func place(ground: Vector3, stance_target: Vector3) -> void:
+	# Only the base stance can turn the hips and feet. The mouse never reaches it.
 	global_position = ground
-	if not attacking:
-		shot_target = target
-	var horizontal := shot_target - global_position
+	var horizontal := stance_target - ground
 	horizontal.y = 0.0
 	if horizontal.length_squared() > 0.001:
+		stance_direction = horizontal.normalized()
 		rotation.y = atan2(horizontal.x, horizontal.z) - deg_to_rad(54.0 if elder else 59.0)
 
 func tick(delta: float, wind_phase: float, wind: Vector3) -> void:
@@ -225,21 +230,38 @@ func _feet() -> void:
 		rest.origin = _joint(foot).origin
 		skeleton.set_bone_global_pose(b, rest)
 
-func _pose(time: float, wind_phase: float, wind: Vector3) -> void:
+func _pose_base() -> void:
 	skeleton.reset_bone_poses()
 	var hips: int = bones[&"Hips"]
 	skeleton.set_bone_pose_position(hips, skeleton.get_bone_rest(hips).origin - Vector3.UP * 0.18)
 	_feet()
+
+func _pose(time: float, wind_phase: float, wind: Vector3) -> void:
+	_pose_base()
+	_pose_upper_body(time, wind_phase, wind)
+
+func _pose_upper_body(time: float, wind_phase: float, wind: Vector3) -> void:
 	var rise := smoothstep(0.0, 0.25 if elder else 0.14, time)
 	var draw := smoothstep(0.12 if elder else 0.065, 0.39 if elder else 0.33, time)
 	var loose := smoothstep(RELEASE, RELEASE + 0.10, time)
 	var recovery := smoothstep(0.56 if elder else 0.48, 0.82 if elder else 0.73, time)
 	var lift := rise * (1.0 - recovery)
 	var load := draw * (1.0 - recovery)
-	_rotate(&"Chest", Quaternion(Vector3.UP, (0.14 if elder else 0.32) * load)
-		* Quaternion(Vector3.RIGHT, (0.105 if elder else 0.035) * (1.0 - 0.75 * draw) * (1.0 - recovery)))
-	_rotate(&"Head", Quaternion(Vector3.RIGHT, (-0.10 if elder else -0.04) * lift))
 	var aim_dir := skeleton.global_basis.inverse() * (shot_target - (global_position + Vector3.UP * HEIGHT * 0.76)).normalized()
+	if aim_dir.length_squared() < .01:
+		aim_dir = skeleton.global_basis.inverse() * stance_direction
+	var neutral := skeleton.global_basis.inverse() * stance_direction
+	var yaw := clampf(angle_difference(atan2(neutral.x, neutral.z), atan2(aim_dir.x, aim_dir.z)), -.85, .85)
+	var pitch := clampf(-asin(aim_dir.y), -.44, .44)
+	var aim_weight := lerpf(.43, 1.0, lift)
+	# Aim At affects Spine and its descendants only. The age-specific draw is
+	# still an additive chest motion, and the hand targets solve after it.
+	_rotate(&"Spine", Quaternion(Vector3.UP, yaw * .30 * aim_weight)
+		* Quaternion(Vector3.RIGHT, pitch * .22 * aim_weight))
+	_rotate(&"Chest", Quaternion(Vector3.UP, yaw * .46 * aim_weight + (0.14 if elder else 0.32) * load)
+		* Quaternion(Vector3.RIGHT, pitch * .31 * aim_weight + (0.105 if elder else 0.035) * (1.0 - 0.75 * draw) * (1.0 - recovery)))
+	_rotate(&"Head", Quaternion(Vector3.UP, yaw * .24)
+		* Quaternion(Vector3.RIGHT, pitch * .47 + (-0.10 if elder else -0.04) * lift))
 	aim_dir.y = clampf(aim_dir.y, -0.40, 0.38)
 	aim_dir = aim_dir.normalized()
 	var flat := Vector3(aim_dir.x, 0.0, aim_dir.z).normalized()
@@ -281,7 +303,9 @@ func _pose(time: float, wind_phase: float, wind: Vector3) -> void:
 
 	var grip_at := skeleton.to_global(palm)
 	grip_world = grip_at
-	var direction := (skeleton.global_basis * aim_dir).normalized()
+	var direction := (shot_target - grip_at).normalized()
+	if direction.length_squared() < .01 or absf(direction.y) > .99:
+		direction = (skeleton.global_basis * aim_dir).normalized()
 	var up := (Vector3.UP - direction * direction.y).normalized()
 	var right := up.cross(direction).normalized()
 	bow.global_transform = Transform3D(Basis(right, up, direction), grip_at)
@@ -307,6 +331,7 @@ func _pose(time: float, wind_phase: float, wind: Vector3) -> void:
 	string_nock_world = bow.to_global(nock)
 	arrow_nock_world = string_nock_world
 	if attacking and time <= RELEASE:
-		_span(arrow, nock, Vector3(0, 0.20, 0.72))
+		var shaft_dir := (bow.to_local(shot_target) - nock).normalized()
+		_span(arrow, nock, nock + shaft_dir * 2.20)
 	else:
 		arrow.hide()

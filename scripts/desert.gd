@@ -91,6 +91,11 @@ func _process(delta: float) -> void:
 			hoof.play()
 	paint()
 
+func _input(event: InputEvent) -> void:
+	# Track aim even over HUD widgets; clicks still go through the UI before shooting.
+	if is_instance_valid(defense) and defense.active and event is InputEventMouseMotion:
+		defense.aim_at(event.position)
+
 func _unhandled_input(event: InputEvent) -> void:
 	if defense.active and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		defense.shoot_at(event.position)

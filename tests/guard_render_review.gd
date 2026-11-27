@@ -20,6 +20,11 @@ func shot(point: Vector2) -> void:
 	e.position = point
 	root.push_input(e, true)
 
+func move_aim(point: Vector2) -> void:
+	var e := InputEventMouseMotion.new()
+	e.position = point
+	root.push_input(e, true)
+
 func capture(dir: String, frame_name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var frame := root.get_texture().get_image()
@@ -38,6 +43,7 @@ func _run() -> void:
 		return
 	var dir := args[0]
 	var video := "--video" in args
+	var aim_proof := "--aim-at" in args
 	var edge_proof := "--edge-proof" in args
 	var scene := SCENE.instantiate()
 	root.add_child(scene)
@@ -60,13 +66,23 @@ func _run() -> void:
 		var point: Vector2 = scene.camera.unproject_position(scene.rider.to_global((points[0] + points[1]) * 0.5))
 		scene.t = original
 		scene.paint()
-		root.warp_mouse(point)
+		if not aim_proof:
+			root.warp_mouse(point)
 		var label := "elder_snow" if variant == 2 else ("elder_sand" if elder else "young_sand")
 		if video:
+			var empty := root.get_visible_rect().size * Vector2(.46, .76)
 			for i in 45:
+				if aim_proof:
+					if i < 6 or i > 21:
+						move_aim(empty)
+					else:
+						move_aim(empty.lerp(point, smoothstep(6.0, 15.0, float(i))))
 				if i == 6:
-					shot(point)
+					shot(empty if aim_proof else point)
 				d.step(1.0 / 24.0)
+				if aim_proof and i == 19 and d.enemy_hp != 1:
+					push_error("Aim At capture failed to hit after adjusting mouse during the draw")
+					failures += 1
 				await capture(dir, "clip_%03d" % (variant * 45 + i))
 			continue
 		shot(point)

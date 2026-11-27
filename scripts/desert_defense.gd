@@ -18,6 +18,8 @@ var host: Node3D
 var overlay: CanvasLayer
 var guard_outline: CanvasLayer
 var active := false
+var aim_screen := Vector2.ZERO
+const REST_AIM := Vector2(.67, .54)
 var enemy_index := 0
 var enemy_hp := 0
 var fort := MAX_INTEGRITY
@@ -76,6 +78,8 @@ func begin() -> void:
 		return_paused = host.paused
 		return_hud = host.hud.hud.visible
 		prior_mouse_mode = Input.mouse_mode
+		var viewport := get_viewport().get_visible_rect()
+		aim_screen = viewport.size * REST_AIM
 	active = true
 	host._stop_sound()
 	host.hud.hud.hide()
@@ -192,7 +196,7 @@ func _update_hud(dt: float) -> void:
 	if host.snow_mode and state == "ride" and host.t < ENGAGEMENT_ROUTE_TIME:
 		instruction = "雪脊上有动静…"
 	var life := "骑兵耐久 %d" % enemy_hp if state == "ride" else "拦截 %d/%d" % [killed, RIDERS]
-	overlay.update_state("%s  ·  来袭 %d/%d    前哨 %d/%d    %s" % ["老年守卫" if archer.elder else "年轻守卫", enemy_index, RIDERS, fort, MAX_INTEGRITY, life], instruction, get_viewport().get_mouse_position(), dt)
+	overlay.update_state("%s  ·  来袭 %d/%d    前哨 %d/%d    %s" % ["老年守卫" if archer.elder else "年轻守卫", enemy_index, RIDERS, fort, MAX_INTEGRITY, life], instruction, aim_screen, dt)
 
 func refresh_hud() -> void:
 	overlay.update_weather(host.snow_mode)
@@ -211,9 +215,10 @@ func _pose_archer(delta: float) -> void:
 	const DEPTH := 24.0
 	var x: float = -0.34 * DEPTH * TERRAIN.FOV_TAN * host.aspect
 	var base := Vector3(x, TERRAIN.ground_y(2, x, DEPTH, host.aspect) - 0.05, -DEPTH)
-	var point := get_viewport().get_visible_rect().size * Vector2(0.67, 0.54)
+	var fixed_facing := get_viewport().get_visible_rect().size * REST_AIM
 	var wind := Vector3(-1.0, 0.10, 0.26).normalized() * wind_gain()
-	archer.place(base, _target_world(point))
+	archer.place(base, host.camera.project_position(fixed_facing, 140.0))
+	archer.aim_at(aim_screen, _target_world(aim_screen))
 	archer_shadow.global_position = base + Vector3.UP * 0.105
 	var dx := TERRAIN.ground_y(2, x + 0.25, DEPTH, host.aspect) - TERRAIN.ground_y(2, x - 0.25, DEPTH, host.aspect)
 	var dz := TERRAIN.ground_y(2, x, DEPTH - 0.25, host.aspect) - TERRAIN.ground_y(2, x, DEPTH + 0.25, host.aspect)
@@ -225,10 +230,17 @@ func _pose_archer(delta: float) -> void:
 	if active:
 		guard_outline.sync(host.camera, base, ARCHER.HEIGHT)
 
+func aim_at(screen: Vector2) -> void:
+	if not active:
+		return
+	aim_screen = screen.clamp(Vector2.ZERO, get_viewport().get_visible_rect().size - Vector2.ONE)
+	archer.aim_at(aim_screen, _target_world(aim_screen))
+
 func shoot_at(screen: Vector2) -> bool:
+	aim_at(screen)
 	if not active or state != "ride" or cooldown > 0.0:
 		return false
-	if not archer.start(screen, _target_world(screen)):
+	if not archer.start(aim_screen, _target_world(aim_screen)):
 		return false
 	cooldown = FIRE_INTERVAL
 	return true

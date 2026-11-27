@@ -6,7 +6,9 @@ const TERRAIN = preload("res://scripts/desert_terrain.gd")
 const ROUTE = preload("res://scripts/desert_route.gd")
 const RIDERS := 3
 const MAX_INTEGRITY := 2
-const FIRE_INTERVAL := 0.31
+const GUARD_OUTLINE = preload("res://scripts/guard_outline.gd")
+const ARCHER = preload("res://scripts/frontier_archer.gd")
+const FIRE_INTERVAL := ARCHER.CYCLE
 const TRACK_SPEED := 1.38
 const ENGAGEMENT_ROUTE_TIME := 5.6
 const BREACH_ROUTE_TIME := 16.95
@@ -14,6 +16,7 @@ const SUPPORTS := [Vector2i(0, 1), Vector2i(2, 3), Vector2i(4, 5), Vector2i(14, 
 
 var host: Node3D
 var overlay: CanvasLayer
+var guard_outline: CanvasLayer
 var active := false
 var enemy_index := 0
 var enemy_hp := 0
@@ -27,11 +30,45 @@ var return_time := 0.0
 var return_paused := false
 var return_hud := true
 var prior_mouse_mode: Input.MouseMode
+var archer: Node3D
+var archer_key: DirectionalLight3D
+var archer_fill: DirectionalLight3D
+var archer_shadow: MeshInstance3D
 
 func _ready() -> void:
 	overlay = OVERLAY.new()
 	add_child(overlay)
 	overlay.weather_requested.connect(host._toggle_weather)
+	archer = ARCHER.new()
+	add_child(archer)
+	archer.released.connect(_release_shot)
+	guard_outline = GUARD_OUTLINE.new()
+	add_child(guard_outline)
+	guard_outline.setup(host.camera)
+	archer.floor_height = func(p: Vector3) -> float:
+		return TERRAIN.ground_y(2, p.x, -p.z, host.aspect)
+	archer_shadow = MeshInstance3D.new()
+	var quad := PlaneMesh.new()
+	quad.size = Vector2(5.4, 3.8)
+	archer_shadow.mesh = quad
+	var ink := ShaderMaterial.new()
+	ink.shader = preload("res://shaders/guard_contact.gdshader")
+	archer_shadow.material_override = ink
+	archer_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	archer_shadow.hide()
+	add_child(archer_shadow)
+	archer_key = DirectionalLight3D.new()
+	archer_key.rotation_degrees = Vector3(-42, -34, 0)
+	archer_key.light_color = Color("#ffdfb4")
+	archer_key.light_energy = 1.14
+	archer_key.hide()
+	add_child(archer_key)
+	archer_fill = DirectionalLight3D.new()
+	archer_fill.rotation_degrees = Vector3(-12, 141, 0)
+	archer_fill.light_color = Color("#c4d4ef")
+	archer_fill.light_energy = 0.58
+	archer_fill.hide()
+	add_child(archer_fill)
 
 func begin() -> void:
 	if not active:
@@ -43,6 +80,12 @@ func begin() -> void:
 	host._stop_sound()
 	host.hud.hud.hide()
 	overlay.show()
+	archer.show()
+	archer_shadow.show()
+	archer_key.show()
+	archer_fill.show()
+	archer.reset()
+	_pose_archer(0.0)
 	overlay.update_weather(host.snow_mode)
 	Input.mouse_mode = Input.MOUSE_MODE_HIDDEN
 	enemy_index = 0
@@ -59,6 +102,12 @@ func leave() -> void:
 	host._stop_sound()
 	Input.mouse_mode = prior_mouse_mode
 	overlay.hide()
+	archer.reset()
+	archer.hide()
+	guard_outline.deactivate()
+	archer_shadow.hide()
+	archer_key.hide()
+	archer_fill.hide()
 	host.hud.hud.visible = return_hud
 	host.t = return_time
 	host.paused = return_paused
@@ -69,6 +118,7 @@ func _spawn() -> void:
 	enemy_hp = 2 if enemy_index < 3 else 3
 	state = "ride"
 	cooldown = 0
+	archer.reset()
 	previous_time = 0.0
 	host.t = 0.50
 	host.paint()
@@ -92,10 +142,18 @@ func _hide_rider() -> void:
 	for particle in host.dust.particles:
 		particle.hide()
 
+func gust_envelope() -> float:
+	# A slower swell and a shorter variation give the gusts room to breathe.
+	var p: float = host.wind_phase
+	return clampf(.56 + .31*sin(p*3.7-.65) + .13*sin(p*8.3+.8), 0.0, 1.0)
+
+func wind_gain() -> float:
+	return clampf(float(host.look.wind) * lerpf(1.12, 3.35, gust_envelope()), 0.0, 1.0)
+
 func step(dt: float) -> void:
 	var delta := minf(maxf(dt, 0), 0.05)
 	cooldown = maxf(0.0, cooldown - delta)
-	host.wind_phase += delta * float(host.look.wind)
+	host.wind_phase += delta * float(host.look.wind) * lerpf(1.55, 3.45, gust_envelope())
 	if state == "ride":
 		previous_time = host.t
 		host.t += delta * (1.0 if host.t < ROUTE.RESUME else TRACK_SPEED)
@@ -120,6 +178,7 @@ func step(dt: float) -> void:
 					state = "won"
 				else:
 					_spawn()
+	_pose_archer(delta)
 	_update_hud(delta)
 
 func _update_hud(dt: float) -> void:
@@ -133,26 +192,59 @@ func _update_hud(dt: float) -> void:
 	if host.snow_mode and state == "ride" and host.t < ENGAGEMENT_ROUTE_TIME:
 		instruction = "雪脊上有动静…"
 	var life := "骑兵耐久 %d" % enemy_hp if state == "ride" else "拦截 %d/%d" % [killed, RIDERS]
-	overlay.update_state("来袭 %d/%d    前哨 %d/%d    %s" % [enemy_index, RIDERS, fort, MAX_INTEGRITY, life], instruction, get_viewport().get_mouse_position(), dt)
+	overlay.update_state("%s  ·  来袭 %d/%d    前哨 %d/%d    %s" % ["老年守卫" if archer.elder else "年轻守卫", enemy_index, RIDERS, fort, MAX_INTEGRITY, life], instruction, get_viewport().get_mouse_position(), dt)
 
 func refresh_hud() -> void:
 	overlay.update_weather(host.snow_mode)
 	_update_hud(0.0)
 
+func set_elder(value: bool) -> void:
+	archer.set_elder(value)
+	_pose_archer(0.0)
+	_update_hud(0.0)
+
+func _target_world(screen: Vector2) -> Vector3:
+	var depth := clampf(-host.rider.position.z, 45.0, 300.0)
+	return host.camera.project_position(screen, depth)
+
+func _pose_archer(delta: float) -> void:
+	const DEPTH := 24.0
+	var x: float = -0.34 * DEPTH * TERRAIN.FOV_TAN * host.aspect
+	var base := Vector3(x, TERRAIN.ground_y(2, x, DEPTH, host.aspect) - 0.05, -DEPTH)
+	var point := get_viewport().get_visible_rect().size * Vector2(0.67, 0.54)
+	var wind := Vector3(-1.0, 0.10, 0.26).normalized() * wind_gain()
+	archer.place(base, _target_world(point))
+	archer_shadow.global_position = base + Vector3.UP * 0.105
+	var dx := TERRAIN.ground_y(2, x + 0.25, DEPTH, host.aspect) - TERRAIN.ground_y(2, x - 0.25, DEPTH, host.aspect)
+	var dz := TERRAIN.ground_y(2, x, DEPTH - 0.25, host.aspect) - TERRAIN.ground_y(2, x, DEPTH + 0.25, host.aspect)
+	var normal := Vector3(-dx * 2.0, 1.0, -dz * 2.0).normalized()
+	archer_shadow.basis = Basis(Quaternion(Vector3.UP, normal))
+	archer_shadow.material_override.set_shader_parameter("snow", host.snow_mode)
+	archer.update_pigment(host.snow_mode, host.look.sand, host.look.sun, host.look.brush)
+	archer.tick(delta, host.wind_phase, wind)
+	if active:
+		guard_outline.sync(host.camera, base, ARCHER.HEIGHT)
+
 func shoot_at(screen: Vector2) -> bool:
 	if not active or state != "ride" or cooldown > 0.0:
 		return false
+	if not archer.start(screen, _target_world(screen)):
+		return false
 	cooldown = FIRE_INTERVAL
+	return true
+
+func _release_shot(screen: Vector2, start_world: Vector3) -> void:
+	if not active or state != "ride":
+		return
 	var hit := false
 	if host.t >= ENGAGEMENT_ROUTE_TIME and host.rider.visible:
 		hit = _hit_rider(screen)
-	overlay.effect(screen, hit)
+	overlay.effect(screen, hit, host.camera.unproject_position(start_world))
 	if hit:
 		enemy_hp -= 1
 		if enemy_hp <= 0:
 			_resolve(false)
 		_update_hud(0.0)
-	return hit
 
 func _hit_rider(screen: Vector2) -> bool:
 	var camera: Camera3D = host.camera

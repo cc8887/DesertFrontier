@@ -51,7 +51,7 @@ func _ready() -> void:
 	_label(box, "大漠边疆  /  守住前哨", 22)
 	info = _label(box, "", 16)
 	tip = _label(box, "", 15)
-	_label(box, "鼠标瞄准 · 左键出击   |   V 切换风雪   |   R 重开   |   Esc 返回观景", 14)
+	_label(box, "鼠标瞄准 · 左键出击   |   1 / 2 年轻 / 老年   |   V 风雪   |   R 重开   |   Esc 返回观景", 14)
 	hit_line = Line2D.new()
 	hit_line.width = 2
 	hit_line.visible = false
@@ -85,10 +85,9 @@ func update_state(status: String, instruction: String, aim_position: Vector2, de
 			hit_line.hide()
 	target.color = Color("#d97855") if hit_time > 0 and not was_hit else Color("#ffe3a0")
 
-func effect(p: Vector2, hit: bool) -> void:
+func effect(p: Vector2, hit: bool, from: Vector2) -> void:
 	hit_time = 0.19
 	was_hit = hit
-	var from := get_viewport().get_visible_rect().size * Vector2(0.52, 0.97)
 	hit_line.points = PackedVector2Array([from, p])
 	hit_line.default_color = Color("#ffdf9ddf") if hit else Color("#ead5a0a1")
 	hit_line.modulate.a = 1.0

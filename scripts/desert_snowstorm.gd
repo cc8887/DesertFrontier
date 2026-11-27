@@ -1,5 +1,5 @@
 extends CanvasLayer
-## Thin cold wind in front of terrain, below both gameplay and cinematic HUDs.
+## Wind veil over the terrain and guard, below the HUDs.
 const SNOW = preload("res://shaders/snowstorm.gdshader")
 var storm: ShaderMaterial
 
@@ -14,10 +14,12 @@ func _ready() -> void:
 	screen.material = storm
 	hide()
 
-func update_storm(snow: bool, phase: float, density: float, intensity: float, aspect: float) -> void:
-	visible = snow
-	if snow:
+func update_storm(snow: bool, phase: float, density: float, intensity: float, aspect: float, gust := 0.0) -> void:
+	visible = snow or gust > 0.002
+	if visible:
 		storm.set_shader_parameter("uPhase", phase)
 		storm.set_shader_parameter("uDensity", density)
 		storm.set_shader_parameter("uSize", intensity)
 		storm.set_shader_parameter("uAspect", aspect)
+		storm.set_shader_parameter("uGust", gust)
+		storm.set_shader_parameter("uIsSnow", snow)

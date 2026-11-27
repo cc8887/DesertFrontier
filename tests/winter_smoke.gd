@@ -50,7 +50,7 @@ func _run() -> void:
 	expect(scene.defense.active and scene.snow_mode, "Defense inherits snow")
 	expect(scene.defense.overlay.weather_button.text.begins_with("切回黄沙"), "Defensive overlay has live weather switch")
 	scene.defense.overlay.weather_button.pressed.emit()
-	expect(not scene.snow_mode and not scene.snowstorm.visible and not scene.tracks.footprints.visible, "Keyboard swaps weather while defending")
+	expect(not scene.snow_mode and scene.snowstorm.visible and not scene.snowstorm.storm.get_shader_parameter("uIsSnow") and not scene.tracks.footprints.visible, "Keyboard switches to warm sand gusts, with no snow or tracks")
 	for n in range(310):
 		scene.defense.step(.05)
 		if scene.defense.state == "breach":

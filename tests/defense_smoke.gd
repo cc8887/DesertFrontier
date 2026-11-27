@@ -1,4 +1,5 @@
 extends SceneTree
+const ARCHER = preload("res://scripts/frontier_archer.gd")
 const SCENE = preload("res://scenes/desert.tscn")
 var failures: PackedStringArray = []
 
@@ -32,10 +33,22 @@ func _aim(scene: Node) -> Vector2:
 	var points: Array[Vector3] = scene.rider.shadow_points(scene.t)
 	return scene.camera.unproject_position(scene.rider.to_global((points[0] + points[1]) * 0.5))
 
+func _lead(scene: Node) -> Vector2:
+	# Defense steps below are 50 ms. The shot resolves on the first step
+	# crossing the shared release marker, not in the mouse event handler.
+	var t: float = scene.t
+	scene.t += ceilf(ARCHER.RELEASE / 0.05) * 0.05 * scene.defense.TRACK_SPEED
+	scene.paint()
+	var point := _aim(scene)
+	scene.t = t
+	scene.paint()
+	return point
+
 func _run() -> void:
 	var scene := SCENE.instantiate()
 	root.add_child(scene)
 	scene.set_process(false)
+	await process_frame
 	var defense: Node = scene.defense
 	_key(KEY_2)
 	expect(is_equal_approx(scene.t, 7.4) and scene.paused and scene.shadow.cast.visible, "Cinematic key 2 remains usable")
@@ -51,11 +64,14 @@ func _run() -> void:
 	var point := _aim(scene)
 	_click(point)
 	expect(defense.enemy_hp == 2, "Immediate next shot cannot bypass cooldown")
+	_tick(defense, 0.85)
+	_click(_lead(scene))
+	expect(defense.enemy_hp == 2, "Mouse queues a shot without premature damage")
+	_tick(defense, 0.50)
+	expect(defense.enemy_hp == 1, "Release-time mouse shot hits the current bone pose")
 	_tick(defense, 0.35)
-	_click(_aim(scene))
-	expect(defense.enemy_hp == 1, "Actual mouse event hits the current bone pose")
-	_tick(defense, 0.35)
-	_click(_aim(scene))
+	_click(_lead(scene))
+	_tick(defense, 0.50)
 	expect(defense.state == "down" and defense.killed == 1 and not scene.rider.visible, "Defeated rider cannot remain visible")
 	_tick(defense, 1.10)
 	expect(defense.enemy_index == 2 and defense.state == "ride" and scene.rider.visible, "Second rider queued")
@@ -64,8 +80,8 @@ func _run() -> void:
 	for rider_number in range(2, 4):
 		_tick(defense, 5.2)
 		for i in (2 if rider_number == 2 else 3):
-			_click(_aim(scene))
-			_tick(defense, 0.35)
+			_click(_lead(scene))
+			_tick(defense, 0.85)
 		_tick(defense, 1.12)
 	expect(defense.state == "won" and defense.killed == 3 and defense.fort == 2, "Survive three aimed encounters")
 

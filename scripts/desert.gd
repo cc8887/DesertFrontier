@@ -108,6 +108,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		match key:
 			KEY_ESCAPE: defense.leave()
 			KEY_R: defense.begin()
+			KEY_1: defense.set_elder(false)
+			KEY_2: defense.set_elder(true)
 			_: return
 		get_viewport().set_input_as_handled()
 		return
@@ -152,7 +154,8 @@ func paint() -> void:
 
 func update_atmosphere() -> void:
 	terrain.update_look(wind_phase, look.sand, look.sun, look.grain, look.brush, look.sky, look.relief, snow_mode)
-	snowstorm.update_storm(snow_mode, wind_phase, look.sand, look.grain, aspect)
+	var gust: float = defense.wind_gain() if is_instance_valid(defense) and defense.active else 0.0
+	snowstorm.update_storm(snow_mode, wind_phase, look.sand, look.grain, aspect, gust)
 
 func _toggle_weather() -> void:
 	snow_mode = not snow_mode

@@ -2,6 +2,8 @@ shader_type spatial;
 render_mode cull_disabled, unshaded;
 
 uniform sampler2D glyph : filter_linear_mipmap, repeat_disable;
+uniform sampler2D tear_mask : filter_linear, repeat_disable;
+uniform bool worn = false;
 uniform float wind_phase = 0.0;
 uniform float wind_strength = .5;
 uniform float winter = 0.0;
@@ -25,11 +27,18 @@ void fragment() {
 	vec3 cloth = mix(vec3(.29,.065,.047),vec3(.53,.132,.090),.54+.30*fold.x+.12*fold.y);
 	float sweep = .5+.5*sin(p.y*18.0+p.x*5.1+fold.y*1.2);
 	cloth *= mix(.94,1.03,sweep);
-	float edge = min(min(p.x,1.0-p.x),min(p.y,1.0-p.y));
-	float outer = 1.0-smoothstep(.052,.072,edge);
-	float binding = smoothstep(.025,.033,edge)*(1.0-smoothstep(.044,.052,edge));
-	cloth = mix(cloth,vec3(.228,.051,.041),outer*.70);
-	cloth = mix(cloth,vec3(.67,.40,.20)*(1.0+.19*fold.x),binding*.82);
+	// Use a real cutout on the elder's winter cloth; the weave stays opaque.
+	float weathering = .0;
+	if (worn) {
+		if (texture(tear_mask,p).a > .48) {
+			discard;
+		}
+		float bleaching = .5+.5*sin(p.y*7.2+p.x*3.8+.46*sin(p.x*11.0));
+		float floods = .5+.5*sin(p.y*3.1-p.x*8.3);
+		weathering = .26+.43*bleaching+.16*floods;
+		cloth = mix(cloth,vec3(.44,.284,.220),weathering);
+		cloth *= mix(.88,1.04,sweep);
+	}
 
 	// The game camera sees the windward side: u=0 is screen-right.
 	float horizontal = FRONT_FACING ? p.x : 1.0-p.x;
@@ -38,6 +47,7 @@ void fragment() {
 	if (all(greaterThanEqual(ink_uv,vec2(0.0))) && all(lessThanEqual(ink_uv,vec2(1.0)))) {
 		ink = texture(glyph,ink_uv).a;
 	}
-	vec3 painted = mix(cloth,vec3(.87,.707,.434)*(1.0+.31*fold.x),ink);
+	vec3 lettering = mix(vec3(.91,.778,.525),vec3(.68,.541,.397),weathering);
+	vec3 painted = mix(cloth,lettering*(1.0+.25*fold.x),ink);
 	ALBEDO = painted*mix(vec3(1.0),vec3(.84,.92,1.02),winter);
 }

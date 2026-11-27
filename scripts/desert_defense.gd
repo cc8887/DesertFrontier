@@ -207,6 +207,7 @@ func _update_hud(dt: float) -> void:
 	overlay.update_state("%s  ·  来袭 %d/%d    前哨 %d/%d    %s" % ["老年守卫" if archer.elder else "年轻守卫", enemy_index, RIDERS, fort, MAX_INTEGRITY, life], instruction, aim_screen, dt)
 
 func refresh_hud() -> void:
+	standard.pose(host.wind_phase,wind_gain(),host.snow_mode,archer.elder)
 	overlay.update_weather(host.snow_mode)
 	_update_hud(0.0)
 
@@ -228,7 +229,7 @@ func _pose_archer(delta: float) -> void:
 	earthwork.set_weather(host.snow_mode, host.look.sun)
 	archer.update_pigment(host.snow_mode, host.look.sand, host.look.sun, host.look.brush)
 	archer.tick(delta, host.wind_phase, wind)
-	standard.pose(host.wind_phase,wind.length(),host.snow_mode)
+	standard.pose(host.wind_phase,wind.length(),host.snow_mode,archer.elder)
 	if active:
 		guard_outline.sync(host.camera, base, ARCHER.HEIGHT)
 		wall_edge.sync(host.camera, host.terrain, earthwork.get_node("SculptedRammedEarth"))

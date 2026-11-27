@@ -51,6 +51,39 @@ func _run() -> void:
 		DirAccess.make_dir_recursive_absolute(args[0])
 		a.save_png(args[0].path_join("flag_phase_a.png"))
 		b.save_png(args[0].path_join("flag_phase_b.png"))
+	# Test the complete gameplay age/weather matrix, including switching back.
+	scene._toggle_weather()
+	var young_snow: bool = d.standard.textile.get_shader_parameter("worn")
+	d.set_elder(true)
+	var elder_snow: bool = d.standard.textile.get_shader_parameter("worn")
+	scene._toggle_weather()
+	var elder_sand: bool = d.standard.textile.get_shader_parameter("worn")
+	d.set_elder(false)
+	var young_sand: bool = d.standard.textile.get_shader_parameter("worn")
+	if young_snow or not elder_snow or elder_sand or young_sand:
+		push_error("Only the elder in snow should see torn cloth")
+		quit(1)
+		return
+	# Freeze phase and compare with a hidden mesh to distinguish holes from stains.
+	var cloth: MeshInstance3D = d.standard.get_node("HangingCloth")
+	d.standard.pose(.39,.82,true,false)
+	var intact: Image = await frame()
+	d.standard.pose(.39,.82,true,true)
+	var torn: Image = await frame()
+	cloth.hide()
+	var background: Image = await frame()
+	cloth.show()
+	var punched := 0
+	for y in range(271,350):
+		for x in range(1,115):
+			var sky := background.get_pixel(x,y)
+			if torn.get_pixel(x,y).is_equal_approx(sky) and not intact.get_pixel(x,y).is_equal_approx(sky):
+				punched += 1
+	if punched < 80:
+		push_error("Tears must reveal the background; only %d cutout pixels" % punched)
+		quit(1)
+		return
+	print("HAN_STANDARD_CUTOUT_OK: all four age/weather combinations, %d background pixels revealed" % punched)
 	d.leave()
 	if moved < 500 or not unchanged_away or d.standard.is_visible_in_tree():
 		push_error("Expected local cloth motion and defense-only visibility; changed pixels %d" % moved)

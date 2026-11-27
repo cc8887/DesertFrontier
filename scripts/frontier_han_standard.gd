@@ -2,6 +2,7 @@ extends Node3D
 ## Worn garrison standard: a wind-deformed, double-sided cloth mesh.
 const FABRIC = preload("res://shaders/frontier_han_standard.gdshader")
 const GLYPH = preload("res://art_assets/props/han_standard/han_glyph.svg")
+const TEARS = preload("res://art_assets/props/han_standard/torn_linen.svg")
 const WIDTH := 2.10
 const HEIGHT := 4.70
 const HOIST := 9.83
@@ -44,14 +45,16 @@ func _ready() -> void:
 	textile = ShaderMaterial.new()
 	textile.shader = FABRIC
 	textile.set_shader_parameter("glyph",GLYPH)
+	textile.set_shader_parameter("tear_mask",TEARS)
 	var cloth := _pin(st.commit(),Vector3.ZERO,textile)
 	cloth.name = "HangingCloth"
 	cloth.extra_cull_margin = 1.5
 
-func pose(phase: float, strength: float, snow: bool) -> void:
+func pose(phase: float, strength: float, snow: bool, elder := false) -> void:
 	textile.set_shader_parameter("wind_phase",phase)
 	textile.set_shader_parameter("wind_strength",strength)
 	textile.set_shader_parameter("winter",1.0 if snow else 0.0)
+	textile.set_shader_parameter("worn",snow and elder)
 
 func _cylinder(top: float, bottom: float, height: float, sides := 10) -> CylinderMesh:
 	var mesh := CylinderMesh.new()

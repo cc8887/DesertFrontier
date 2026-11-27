@@ -10,7 +10,7 @@ var front_dunes: Array[MeshInstance3D] = []
 var proxies: Array[MeshInstance3D] = []
 var last_camera := PackedFloat32Array()
 var running := false
-var radius_at_720 := 5.2
+var radius_at_720 := 6.4
 
 func setup(wall: MeshInstance3D, terrain: Node3D, guard_mask: SubViewport) -> void:
 	if guard_mask == null:

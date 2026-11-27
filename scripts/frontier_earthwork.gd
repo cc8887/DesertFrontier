@@ -18,7 +18,7 @@ func _ready() -> void:
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	# The broad open wall-walk leaves the player and the enemy lane readable.
-	_block(st, rng, Vector3(-13.3, WALK_Y, -23.8), Vector2(30.7, 16.2), 23.0, .54, true)
+	_rounded_bank(st, Vector3(-13.3, WALK_Y, -23.8), Vector2(29.45, 15.52), 23.0, Vector2(1.12, 1.88))
 	# Each damaged run is one packed-earth mass with a broken crest, not a
 	# row of individual blocks. Keep the archer's firing bay open.
 	_eroded_run(st, -30.90, 2.12, [
@@ -35,8 +35,7 @@ func _ready() -> void:
 		Vector2(-25.0,.43),Vector2(-23.7,.67),Vector2(-21.1,.76),
 		Vector2(-19.0,.53),Vector2(-16.9,.62),Vector2(-15.1,.27),
 		Vector2(-14.0,.10)])
-	_block(st, rng, Vector3(.48,WALK_Y-2.50,-23.3), Vector2(5.8,12.0), 17.0,.52,true)
-	_block(st, rng, Vector3(2.87,WALK_Y-4.42,-24.9), Vector2(4.8,7.2), 15.0,.46,true)
+	_rounded_bank(st, Vector3(.92,WALK_Y-3.15,-23.65), Vector2(5.30,10.6), 17.0, Vector2(.96,1.61))
 	# Left bastion and its long, lower tail. Weathering reads on the crest
 	# and in horizontal layers, not as a stack of loose masonry.
 	_block(st, rng, Vector3(-25.3,WALK_Y+2.13,-34.9),Vector2(10.6,10.4),26.0,.42)
@@ -72,6 +71,79 @@ func floor_height(_p: Vector3) -> float:
 func set_weather(winter: bool, sun_power: float) -> void:
 	material.set_shader_parameter("winter", 1.0 if winter else 0.0)
 	material.set_shader_parameter("sun_power", sun_power)
+
+# A flat walk and a wide, tangent-continuous shoulder are part of one mesh.
+# Only the outer rim rolls over; the existing walk collision remains level.
+func _rounded_bank(st: SurfaceTool, center: Vector3, size: Vector2, height: float, shoulder: Vector2) -> void:
+	var edge := PackedVector2Array()
+	var axes := PackedVector2Array()
+	var corner := minf(size.y*.21,1.36)
+	var inner := size*.5-Vector2.ONE*corner
+	for quadrant in 4:
+		var start := float(quadrant)*PI*.5
+		var origin := Vector2.from_angle(start+PI*.25).sign()*inner
+		for i in 9:
+			var axis := Vector2.from_angle(start+float(i)*PI/16.0)
+			edge.append(origin+axis*corner)
+			axes.append(axis)
+		var axis := Vector2.from_angle(start+PI*.5)
+		var next := Vector2.from_angle(start+PI*.75).sign()*inner
+		for i in range(1,8):
+			edge.append(origin.lerp(next,float(i)/8.0)+axis*corner)
+			axes.append(axis)
+	var rings: Array[PackedVector3Array] = []
+	var normals: Array[PackedVector3Array] = []
+	for row in 14:
+		var ring := PackedVector3Array()
+		var rs := PackedVector3Array()
+		for i in edge.size():
+			var p := edge[i]
+			var axis := axes[i]
+			# Broad, shallow erosion varies the roll without disturbing the flat walk.
+			var undulation := sin(p.x*.43+p.y*.24)*.62+sin(p.x*.17-p.y*.53)*.38
+			var reach := shoulder.x*(1.0+.19*undulation)
+			var depth := shoulder.y*(1.0+.21*undulation)
+			var a := minf(float(row)/11.0,1.0)*PI*.5
+			var drop := depth*(1.0-cos(a))
+			var spread := reach*sin(a)
+			var ny := reach/depth*cos(a)
+			var nz := sin(a)
+			if row > 11:
+				var f := .26 if row == 12 else 1.0
+				var run := (height-depth)*f
+				drop = depth+run
+				# Battered face slopes away slowly, not an abrupt bevel at its top.
+				spread = reach+run*.115*(1.0-exp(-run*.26))
+				ny = .115*(1.0-exp(-run*.26)+run*.26*exp(-run*.26))
+				nz = 1.0
+			var footprint := p+axis*spread
+			ring.append(center+Vector3(footprint.x,-drop,footprint.y))
+			rs.append(Vector3(axis.x*nz,ny,axis.y*nz).normalized())
+		rings.append(ring)
+		normals.append(rs)
+	for i in edge.size():
+		var j := (i+1)%edge.size()
+		_face(st,center,rings[0][i],rings[0][j],Vector3.UP)
+		for row in range(rings.size()-1):
+			_bank_face(st,rings[row][i],rings[row+1][i],rings[row][j],
+				normals[row][i],normals[row+1][i],normals[row][j])
+			_bank_face(st,rings[row][j],rings[row+1][i],rings[row+1][j],
+				normals[row][j],normals[row+1][i],normals[row+1][j])
+
+func _bank_face(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+	na: Vector3, nb: Vector3, nc: Vector3) -> void:
+	st.set_normal(na)
+	st.add_vertex(a)
+	if (c-a).cross(b-a).dot(na+nb+nc) > 0.0:
+		st.set_normal(nb)
+		st.add_vertex(b)
+		st.set_normal(nc)
+		st.add_vertex(c)
+	else:
+		st.set_normal(nc)
+		st.add_vertex(c)
+		st.set_normal(nb)
+		st.add_vertex(b)
 
 # Swept clay cross-section. Neighboring triangles share averaged normals on
 # the continuous eroded surface; the designed silhouette still stays irregular.

@@ -40,7 +40,7 @@ float paint(vec2 uv) {
 void fragment() {
 	vec3 p = world_pos;
 	vec3 n = normalize(mat3(INV_VIEW_MATRIX) * NORMAL);
-	float top = smoothstep(.30,.90,n.y);
+	float top = smoothstep(-.06,1.02,n.y);
 	// Vertical paint layers follow elevation around corners; the deck uses its
 	// own broader swept coat so it doesn't look like a pile of fragments.
 	vec2 deck = vec2(p.x+.32*p.z,p.z-.21*p.x);
@@ -51,25 +51,25 @@ void fragment() {
 	float blend_side = smoothstep(.15,.85,axis);
 	float side_wash = mix(along_x,along_z,blend_side);
 	float dragged = .5+.5*sin(deck.y*.36 + 1.80*wash(deck/vec2(17.0,7.4)+vec2(2.3,18.4)));
-	float glaze = smoothstep(.19,.63,dragged);
-	float pigment = mix(side_wash,mix(deck_wash,glaze,.36),top);
-	vec3 clay = mix(vec3(.562,.423,.299),vec3(.726,.567,.408),.5+(pigment-.5)*brush_strength);
-	clay = mix(clay,clay*vec3(1.01,1.045,1.09),top*glaze*.8);
+	float glaze = smoothstep(.08,.91,dragged);
+	float pigment = mix(side_wash,mix(deck_wash,glaze,.27),top);
+	vec3 clay = mix(vec3(.585,.444,.315),vec3(.703,.548,.396),.5+(pigment-.5)*brush_strength);
+	clay = mix(clay,clay*vec3(1.01,1.024,1.048),top*glaze*.8);
 	// Subtle, broken compaction bands. Avoid dark grout lines or vertical joints.
 	float run = wash(p.xz*.093 + vec2(6.1,4.2));
 	float h = p.y + (run-.5)*.31;
 	float layer = .5+.5*sin(h*3.78+.53*sin(h*1.11));
-	float tier = smoothstep(.27,.71,layer)*mix(.32,1.0,smoothstep(.12,.79,run));
+	float tier = smoothstep(.12,.89,layer)*mix(.32,1.0,smoothstep(.12,.79,run));
 	float wall_base = 1.0-smoothstep(-14.0,-4.6,p.y);
-	clay *= (1.0 - .095*tier*(1.0-top) - .095*wall_base)*mix(.94,1.035,top);
+	clay *= (1.0 - .05*tier*(1.0-top) - .073*wall_base)*mix(.984,1.020,top);
 	// Dust/snow rests on upward-facing surfaces; leave warm earth visible below.
 	float powder = wash(p.xz/vec2(7.8,6.9)+vec2(21.2,12.1));
-	float deposit = smoothstep(.21,.74,powder*.78+deck_wash*.22) * smoothstep(.52,.94,n.y) * winter;
+	float deposit = smoothstep(.21,.74,powder*.78+deck_wash*.22) * smoothstep(.30,1.0,n.y) * winter;
 	vec3 snow = mix(vec3(.70,.73,.735),vec3(.83,.85,.83),smoothstep(.18,.85,powder));
 	clay = mix(clay*mix(vec3(1.0),vec3(.87,.94,1.04),winter),snow,deposit*.92);
 	ALBEDO = clay;
 	// Matte colored base remains lit in shade; retain the real cast shadow.
-	EMISSION = clay * (mix(.71,.77,winter)+.055*top);
+	EMISSION = clay * (mix(.735,.78,winter)+.026*top);
 }
 
 void light() {

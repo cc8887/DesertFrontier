@@ -5,6 +5,7 @@ signal released(screen: Vector2, start_world: Vector3)
 const YOUNG = preload("res://assets/guard/young_guard.glb")
 const ELDER = preload("res://assets/guard/elder_guard.glb")
 const PAINTER = preload("res://shaders/guard_painterly.gdshader")
+const CAST_LAYER = preload("res://scripts/frontier_earthwork.gd").ARCHER_SHADOW_LAYER
 const INK_LAYER = preload("res://scripts/guard_outline.gd").MASK_LAYER
 const HEIGHT := 6.7774184
 const RELEASE := 0.44
@@ -78,7 +79,8 @@ func _rod(color: Color, radius: float, parent: Node3D) -> MeshInstance3D:
 	rod.mesh = mesh
 	if draws_pixels:
 		rod.material_override = _paint_material(color)
-	rod.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rod.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
+	rod.layers |= CAST_LAYER
 	parent.add_child(rod)
 	return rod
 
@@ -107,7 +109,8 @@ func _build_variant() -> void:
 		last_look = Vector4(-1, -1, -1, -1)
 	if draws_pixels:
 		for part in model.find_children("*", "MeshInstance3D", true, false):
-			part.layers |= INK_LAYER
+			part.layers |= INK_LAYER | CAST_LAYER
+			part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_DOUBLE_SIDED
 			for i in part.mesh.get_surface_count():
 				var base := part.mesh.surface_get_material(i) as StandardMaterial3D
 				if base != null:
@@ -214,7 +217,7 @@ func _feet() -> void:
 		var d := Vector3(sg * (0.119 if elder else 0.103), 0.08, sg * -0.034) * HEIGHT
 		if floor_height.is_valid():
 			var sole := skeleton.to_global(d + Vector3(0, -0.08, 0.035) * HEIGHT)
-			d.y += float(floor_height.call(sole)) + 0.035 - sole.y
+			d.y += float(floor_height.call(sole)) + 0.006 - sole.y
 		var u := a.distance_to(_joint(shin).origin)
 		var v := _joint(shin).origin.distance_to(_joint(foot).origin)
 		var vec := d - a

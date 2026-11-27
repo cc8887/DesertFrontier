@@ -7,6 +7,8 @@ const ROUTE = preload("res://scripts/desert_route.gd")
 const RIDERS := 3
 const MAX_INTEGRITY := 2
 const GUARD_OUTLINE = preload("res://scripts/guard_outline.gd")
+const EARTHWORK = preload("res://scripts/frontier_earthwork.gd")
+const LIGHTING = preload("res://scripts/desert_shadow.gd")
 const ARCHER = preload("res://scripts/frontier_archer.gd")
 const FIRE_INTERVAL := ARCHER.CYCLE
 const TRACK_SPEED := 1.38
@@ -34,8 +36,7 @@ var return_hud := true
 var prior_mouse_mode: Input.MouseMode
 var archer: Node3D
 var archer_key: DirectionalLight3D
-var archer_fill: DirectionalLight3D
-var archer_shadow: MeshInstance3D
+var earthwork: Node3D
 
 func _ready() -> void:
 	overlay = OVERLAY.new()
@@ -47,30 +48,27 @@ func _ready() -> void:
 	guard_outline = GUARD_OUTLINE.new()
 	add_child(guard_outline)
 	guard_outline.setup(host.camera)
-	archer.floor_height = func(p: Vector3) -> float:
-		return TERRAIN.ground_y(2, p.x, -p.z, host.aspect)
-	archer_shadow = MeshInstance3D.new()
-	var quad := PlaneMesh.new()
-	quad.size = Vector2(5.4, 3.8)
-	archer_shadow.mesh = quad
-	var ink := ShaderMaterial.new()
-	ink.shader = preload("res://shaders/guard_contact.gdshader")
-	archer_shadow.material_override = ink
-	archer_shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	archer_shadow.hide()
-	add_child(archer_shadow)
+	earthwork = EARTHWORK.new()
+	earthwork.name = "FrontierEarthwork"
+	add_child(earthwork)
+	earthwork.hide()
+	archer.floor_height = earthwork.floor_height
 	archer_key = DirectionalLight3D.new()
-	archer_key.rotation_degrees = Vector3(-42, -34, 0)
-	archer_key.light_color = Color("#ffdfb4")
-	archer_key.light_energy = 1.14
-	archer_key.hide()
+	archer_key.name = "RampartSun"
 	add_child(archer_key)
-	archer_fill = DirectionalLight3D.new()
-	archer_fill.rotation_degrees = Vector3(-12, 141, 0)
-	archer_fill.light_color = Color("#c4d4ef")
-	archer_fill.light_energy = 0.58
-	archer_fill.hide()
-	add_child(archer_fill)
+	archer_key.look_at(archer_key.global_position - LIGHTING.SUN)
+	archer_key.light_cull_mask = EARTHWORK.WALL_LIGHT_LAYER
+	archer_key.shadow_caster_mask = EARTHWORK.ARCHER_SHADOW_LAYER
+	archer_key.light_color = Color("#fff6e7")
+	archer_key.shadow_enabled = true
+	archer_key.shadow_bias = 0.035
+	archer_key.shadow_normal_bias = 0.0
+	archer_key.shadow_opacity = .88
+	archer_key.shadow_blur = 1.35
+	archer_key.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	archer_key.directional_shadow_max_distance = 58.0
+	archer_key.directional_shadow_fade_start = .90
+	archer_key.hide()
 
 func begin() -> void:
 	if not active:
@@ -85,9 +83,8 @@ func begin() -> void:
 	host.hud.hud.hide()
 	overlay.show()
 	archer.show()
-	archer_shadow.show()
+	earthwork.show()
 	archer_key.show()
-	archer_fill.show()
 	archer.reset()
 	_pose_archer(0.0)
 	overlay.update_weather(host.snow_mode)
@@ -109,9 +106,8 @@ func leave() -> void:
 	archer.reset()
 	archer.hide()
 	guard_outline.deactivate()
-	archer_shadow.hide()
+	earthwork.hide()
 	archer_key.hide()
-	archer_fill.hide()
 	host.hud.hud.visible = return_hud
 	host.t = return_time
 	host.paused = return_paused
@@ -212,19 +208,12 @@ func _target_world(screen: Vector2) -> Vector3:
 	return host.camera.project_position(screen, depth)
 
 func _pose_archer(delta: float) -> void:
-	const DEPTH := 24.0
-	var x: float = -0.34 * DEPTH * TERRAIN.FOV_TAN * host.aspect
-	var base := Vector3(x, TERRAIN.ground_y(2, x, DEPTH, host.aspect) - 0.05, -DEPTH)
+	var base := Vector3(EARTHWORK.GUARD_X, EARTHWORK.WALK_Y, EARTHWORK.GUARD_Z)
 	var fixed_facing := get_viewport().get_visible_rect().size * REST_AIM
 	var wind := Vector3(-1.0, 0.10, 0.26).normalized() * wind_gain()
 	archer.place(base, host.camera.project_position(fixed_facing, 140.0))
 	archer.aim_at(aim_screen, _target_world(aim_screen))
-	archer_shadow.global_position = base + Vector3.UP * 0.105
-	var dx := TERRAIN.ground_y(2, x + 0.25, DEPTH, host.aspect) - TERRAIN.ground_y(2, x - 0.25, DEPTH, host.aspect)
-	var dz := TERRAIN.ground_y(2, x, DEPTH - 0.25, host.aspect) - TERRAIN.ground_y(2, x, DEPTH + 0.25, host.aspect)
-	var normal := Vector3(-dx * 2.0, 1.0, -dz * 2.0).normalized()
-	archer_shadow.basis = Basis(Quaternion(Vector3.UP, normal))
-	archer_shadow.material_override.set_shader_parameter("snow", host.snow_mode)
+	earthwork.set_weather(host.snow_mode, host.look.sun)
 	archer.update_pigment(host.snow_mode, host.look.sand, host.look.sun, host.look.brush)
 	archer.tick(delta, host.wind_phase, wind)
 	if active:

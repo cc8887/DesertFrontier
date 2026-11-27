@@ -58,7 +58,7 @@ func _ready() -> void:
 	earthwork.hide()
 	standard = STANDARD.new()
 	standard.name = "HanStandard"
-	standard.position = Vector3(-15.55,EARTHWORK.WALK_Y,-29.02)
+	standard.position = Vector3(-18.29,EARTHWORK.WALK_Y,-29.20)
 	earthwork.add_child(standard)
 	wall_edge = WALL_EDGE.new()
 	add_child(wall_edge)

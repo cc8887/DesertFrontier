@@ -1,7 +1,7 @@
 extends SceneTree
 ## Native render acceptance: force two wind phases at one frozen gameplay frame.
 const SCENE = preload("res://scenes/desert.tscn")
-const CLOTH_REGION := Rect2i(9,252,140,144)
+const CLOTH_REGION := Rect2i(0,170,145,192)
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -38,7 +38,7 @@ func _run() -> void:
 	var b: Image = await frame()
 	var moved := 0
 	var unchanged_away := true
-	for y in range(246,404):
+	for y in range(158,374):
 		for x in range(0,216):
 			if a.get_pixel(x,y).is_equal_approx(b.get_pixel(x,y)):
 				continue

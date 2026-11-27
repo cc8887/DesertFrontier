@@ -2,10 +2,10 @@ extends Node3D
 ## Worn garrison standard: a wind-deformed, double-sided cloth mesh.
 const FABRIC = preload("res://shaders/frontier_han_standard.gdshader")
 const GLYPH = preload("res://art_assets/props/han_standard/han_glyph.svg")
-const WIDTH := 3.68
-const HEIGHT := 3.36
-const HOIST := 7.10
-const HOIST_X := .115
+const WIDTH := 2.10
+const HEIGHT := 4.70
+const HOIST := 9.83
+const FRONT := -.32
 var textile: ShaderMaterial
 
 func _ready() -> void:
@@ -19,28 +19,33 @@ func _ready() -> void:
 	_pin(_cylinder(.24,.32,.28),Vector3(0.0,.10,0.0),bronze)
 	_pin(_cylinder(.145,.145,.16),Vector3(0.0,HOIST+.11,0.0),bronze)
 	_pin(_cylinder(0.0,.20,.48,4),Vector3(0.0,HOIST+.41,0.0),brass)
-	for y in [HOIST-.12,HOIST-.52,HOIST-HEIGHT+.15]:
-		_pin(_cylinder(.139,.139,.10),Vector3(0.0,y,0.0),brass)
+	# The crossbar supports the whole top edge. Bronze caps and two wrapped ties.
+	var bar := _pin(_cylinder(.083,.083,WIDTH+.47),Vector3(0.0,HOIST,FRONT),wood)
+	bar.rotation.z = PI*.5
+	for side: float in [-1.0,1.0]:
+		var tip := _pin(_cylinder(.133,.133,.16),Vector3(side*(WIDTH*.5+.18),HOIST,FRONT),bronze)
+		tip.rotation.z = PI*.5
+		var loop := _pin(_cylinder(.109,.109,.12),Vector3(side*(WIDTH*.5-.19),HOIST,FRONT),brass)
+		loop.rotation.z = PI*.5
+	_pin(_cylinder(.143,.143,.21),Vector3(0.0,HOIST,0.0),brass)
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for x in 28:
-		for y in 12:
-			var a := Vector2(float(x)/28.0,float(y)/12.0)
-			var b := Vector2(float(x+1)/28.0,a.y)
-			var c := Vector2(a.x,float(y+1)/12.0)
+	for x in 16:
+		for y in 28:
+			var a := Vector2(float(x)/16.0,float(y)/28.0)
+			var b := Vector2(float(x+1)/16.0,a.y)
+			var c := Vector2(a.x,float(y+1)/28.0)
 			var d := Vector2(b.x,c.y)
 			for uv: Vector2 in [a,b,c,c,b,d]:
-				# Notched end and slightly wandering hem. The lettering follows the cloth.
-				var notch := (1.0-absf(uv.y*2.0-1.0))*.21
-				var tail := uv.x*uv.x*notch
-				var hem := .13*sin(uv.x*PI)*sin(uv.x*5.9+uv.y*2.4)
+				var notch := (1.0-absf(uv.x*2.0-1.0))*.76*pow(uv.y,5.0)
+				var taper := 1.0-.10*pow(uv.y,2.0)
 				st.set_uv(uv)
-				st.add_vertex(Vector3(HOIST_X+(uv.x-tail)*WIDTH,HOIST-uv.y*HEIGHT+hem,0.0))
+				st.add_vertex(Vector3((uv.x-.5)*WIDTH*taper,HOIST-.046-uv.y*HEIGHT+notch,FRONT))
 	textile = ShaderMaterial.new()
 	textile.shader = FABRIC
 	textile.set_shader_parameter("glyph",GLYPH)
 	var cloth := _pin(st.commit(),Vector3.ZERO,textile)
-	cloth.name = "SwallowtailCloth"
+	cloth.name = "HangingCloth"
 	cloth.extra_cull_margin = 1.5
 
 func pose(phase: float, strength: float, snow: bool) -> void:

@@ -8,17 +8,16 @@ uniform float winter = 0.0;
 varying vec2 fold;
 
 void vertex() {
-	float u = UV.x; // Fixed hoist; amplitude builds toward loose cloth.
-	float p = wind_phase*8.0;
-	float a = p-u*7.0+UV.y*.93;
-	float b = p*1.34-u*11.2-UV.y*1.85;
+	float v = UV.y; // Top edge pinned to the crossbar.
+	float p = wind_phase*7.8;
+	float a = p-v*9.6+UV.x*2.1;
+	float b = p*1.19-v*14.2-UV.x*3.4;
 	float amp = mix(.12,.59,wind_strength);
-	float curl = sin(a)*amp + sin(b)*amp*.25;
-	VERTEX.z += curl*u;
-	VERTEX.y -= u*mix(.68,.20,wind_strength);
-	VERTEX.y += u*amp*.7*sin(a-.50)+u*u*amp*.38*sin(b);
-	VERTEX.x *= mix(.80,1.0,wind_strength);
-	fold = vec2(cos(a)*amp*u,sin(b)*u);
+	float loose = v*v;
+	VERTEX.z -= v*amp*(.65+.53*sin(a)+.22*sin(b));
+	VERTEX.x += loose*(.095+.32*wind_strength + .16*sin(a-.42));
+	VERTEX.y += loose*amp*.34*sin(a+.80);
+	fold = vec2(cos(a)*amp*v,sin(b)*v);
 }
 
 void fragment() {
@@ -32,9 +31,9 @@ void fragment() {
 	cloth = mix(cloth,vec3(.228,.051,.041),outer*.70);
 	cloth = mix(cloth,vec3(.67,.40,.20)*(1.0+.19*fold.x),binding*.82);
 
-	// The game camera sees the windward side: hoist u=0 is screen-right.
+	// The game camera sees the windward side: u=0 is screen-right.
 	float horizontal = FRONT_FACING ? p.x : 1.0-p.x;
-	vec2 ink_uv = (vec2(horizontal,p.y)-vec2(.534,.505))/vec2(.60,.72)+.5;
+	vec2 ink_uv = (vec2(horizontal,p.y)-vec2(.50,.405))/vec2(.78,.395)+.5;
 	float ink = 0.0;
 	if (all(greaterThanEqual(ink_uv,vec2(0.0))) && all(lessThanEqual(ink_uv,vec2(1.0)))) {
 		ink = texture(glyph,ink_uv).a;
